@@ -102,7 +102,8 @@ class SDDockerBackend(AbstractSDBackend):
         conf_reload_set = set()
         for c_id in changed_containers:
             checks = self._get_checks_to_refresh(state, c_id)
-            conf_reload_set.update(set(checks))
+            if checks:
+                conf_reload_set.update(set(checks))
 
         if conf_reload_set:
             self.reload_check_configs = conf_reload_set
@@ -114,6 +115,8 @@ class SDDockerBackend(AbstractSDBackend):
 
         # if the container was removed we can't tell which check is concerned
         # so we have to reload everything
+        # TODO: with the cache it's not needed anymore
+        # but the cache never purges dead containers, this should be improved
         if not inspect:
             self.reload_check_configs = True
             return
@@ -172,7 +175,7 @@ class SDDockerBackend(AbstractSDBackend):
 
         # no specifier
         if len(tpl_parts) < 2:
-            log.warning("No key was passed for template variable %s." % tpl_var)
+            log.debug("No key was passed for template variable %s." % tpl_var)
             return self._get_fallback_ip(ip_dict)
         else:
             res = ip_dict.get(tpl_parts[-1])
@@ -185,11 +188,11 @@ class SDDockerBackend(AbstractSDBackend):
     def _get_fallback_ip(self, ip_dict):
         """try to pick the bridge key, falls back to the value of the last key"""
         if 'bridge' in ip_dict:
-            log.warning("Using the bridge network.")
+            log.debug("Using the bridge network.")
             return ip_dict['bridge']
         else:
             last_key = sorted(ip_dict.iterkeys())[-1]
-            log.warning("Trying with the last (sorted) network: '%s'." % last_key)
+            log.debug("Trying with the last (sorted) network: '%s'." % last_key)
             return ip_dict[last_key]
 
     def _get_port(self, state, c_id, tpl_var):
@@ -316,8 +319,6 @@ class SDDockerBackend(AbstractSDBackend):
             }
         config_templates = self._get_config_templates(identifier, **platform_kwargs)
         if not config_templates:
-            log.debug('No config template for container %s with identifier %s. '
-                      'It will be left unconfigured.' % (c_id[:12], identifier))
             return None
 
         check_configs = []
