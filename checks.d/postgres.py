@@ -541,6 +541,9 @@ SELECT s.schemaname,
 
                 desc = scope['descriptors']
 
+                if scope == self.LOCK_METRICS:
+                    self.log.info('Lock query results: %s', results)
+                    self.log.info('Desc: %s', desc)
                 # parse & submit results
                 # A row should look like this
                 # (descriptor, descriptor, ..., value, value, value, value, ...)
