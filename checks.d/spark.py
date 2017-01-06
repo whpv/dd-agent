@@ -297,14 +297,20 @@ class SparkCheck(AgentCheck):
                 app_url = self._get_standalone_app_url(app_id, spark_master_address)
 
                 if app_id and app_name and app_url:
-                    running_apps[app_id] = (app_name, app_url)
+                    applist = self._rest_request_to_json(app_url,
+                        SPARK_APPS_PATH,
+                        SPARK_STANDALONE_SERVICE_CHECK)
+                    for appl in applist:
+                        aid = appl.get('id')
+                        aname = appl.get('name')
+                        running_apps[aid] = (aname, app_url)
 
         # Report success after gathering metrics from Spark master
         self.service_check(SPARK_STANDALONE_SERVICE_CHECK,
             AgentCheck.OK,
             tags=['url:%s' % spark_master_address],
             message='Connection to Spark master "%s" was successful' % spark_master_address)
-
+        self.log.info("Returning running apps %s" % running_apps)
         return running_apps
 
     def _mesos_init(self, master_address):
@@ -624,6 +630,7 @@ class SparkCheck(AgentCheck):
             url = urljoin(url, '?' + query)
 
         try:
+            self.log.debug('Spark check URL: %s' % url)
             response = requests.get(url)
             response.raise_for_status()
 
