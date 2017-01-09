@@ -113,11 +113,13 @@ class SDDockerBackend(AbstractSDBackend):
         Use the DATADOG_ID label or the image."""
         inspect = state.inspect_container(c_id)
 
-        # if the container was removed we can't tell which check is concerned
-        # so we have to reload everything
-        # TODO: with the cache it's not needed anymore
-        # but the cache never purges dead containers, this should be improved
-        if not inspect:
+        # If the container was removed we can't tell which check is concerned
+        # so we have to reload everything.
+        # Same thing if it's stopped and we're on Kubernetes in auto_conf mode
+        # because the pod was deleted and its template could have been in the annotations.
+        if not inspect or \
+                (not inspect.get('State', {}).get('Running')
+                    and Platform.is_k8s() and not self.agentConfig.get('sd_config_backend')):
             self.reload_check_configs = True
             return
 
@@ -343,7 +345,6 @@ class SDDockerBackend(AbstractSDBackend):
         templates = []
         if config_backend is None:
             auto_conf = True
-            log.warning('No supported configuration backend was provided, using auto-config only.')
         else:
             auto_conf = False
 
