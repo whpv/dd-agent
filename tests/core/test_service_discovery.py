@@ -2,6 +2,8 @@
 import copy
 import mock
 import unittest
+import os
+from shutil import copyfile
 
 # 3p
 from nose.plugins.attrib import attr
@@ -14,6 +16,7 @@ from utils.service_discovery.etcd_config_store import EtcdStore
 from utils.service_discovery.abstract_config_store import AbstractConfigStore, CONFIG_FROM_KUBE
 from utils.service_discovery.sd_backend import get_sd_backend
 from utils.service_discovery.sd_docker_backend import SDDockerBackend, _SDDockerBackendConfigFetchState
+from tests.checks.common import copy_checks, remove_checks
 
 
 def clear_singletons(agentConfig):
@@ -157,6 +160,9 @@ class TestServiceDiscovery(unittest.TestCase):
         ]),
     }
 
+    FIXTURE_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'fixtures', 'auto_conf')
+    CONFD_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'conf.d', 'auto_conf')
+
     def setUp(self):
         self.etcd_agentConfig = {
             'service_discovery': True,
@@ -181,7 +187,14 @@ class TestServiceDiscovery(unittest.TestCase):
             'additional_checksd': '/etc/dd-agent/checks.d/',
         }
         self.agentConfigs = [self.etcd_agentConfig, self.consul_agentConfig, self.auto_conf_agentConfig]
+        copy_checks()
+        copyfile(os.path.join(self.FIXTURE_PATH, 'consul.yaml'), os.path.join(self.CONFD_PATH, 'consul.yaml'))
+        copyfile(os.path.join(self.FIXTURE_PATH, 'redisdb.yaml'), os.path.join(self.CONFD_PATH, 'redisdb.yaml'))
 
+    def tearDown(self):
+        remove_checks()
+        os.remove(os.path.join(self.CONFD_PATH, 'consul.yaml'))
+        os.remove(os.path.join(self.CONFD_PATH, 'redisdb.yaml'))
     # sd_backend tests
 
     @mock.patch('utils.http.requests.get')
