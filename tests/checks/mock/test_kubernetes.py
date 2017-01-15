@@ -65,6 +65,7 @@ class TestKubernetes(AgentCheckTest):
                 side_effect=lambda: json.loads(Fixtures.read_file("metrics_1.1.json")))
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_pods_list',
                 side_effect=lambda: json.loads(Fixtures.read_file("pods_list_1.1.json", string_escape=False)))
+    @mock.patch('utils.kubernetes.KubeUtil._locate_kubelet', return_value='http://172.17.0.1:10255')
     def test_fail_1_1(self, *args):
         # To avoid the disparition of some gauges during the second check
         config = {
@@ -81,6 +82,7 @@ class TestKubernetes(AgentCheckTest):
                 side_effect=lambda: json.loads(Fixtures.read_file("metrics_1.1.json")))
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_pods_list',
                 side_effect=lambda: json.loads(Fixtures.read_file("pods_list_1.1.json", string_escape=False)))
+    @mock.patch('utils.kubernetes.KubeUtil._locate_kubelet', return_value='http://172.17.0.1:10255')
     def test_metrics_1_1(self, *args):
         # To avoid the disparition of some gauges during the second check
         mocks = {
@@ -139,6 +141,7 @@ class TestKubernetes(AgentCheckTest):
                 side_effect=lambda: json.loads(Fixtures.read_file("metrics_1.1.json")))
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_pods_list',
                 side_effect=lambda: json.loads(Fixtures.read_file("pods_list_1.1.json", string_escape=False)))
+    @mock.patch('utils.kubernetes.KubeUtil._locate_kubelet', return_value='http://172.17.0.1:10255')
     def test_historate_1_1(self, *args):
         # To avoid the disparition of some gauges during the second check
         mocks = {
@@ -190,6 +193,7 @@ class TestKubernetes(AgentCheckTest):
                 side_effect=lambda: json.loads(Fixtures.read_file("metrics_1.2.json")))
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_pods_list',
                 side_effect=lambda: json.loads(Fixtures.read_file("pods_list_1.2.json", string_escape=False)))
+    @mock.patch('utils.kubernetes.KubeUtil._locate_kubelet', return_value='http://172.17.0.1:10255')
     def test_fail_1_2(self, *args):
         # To avoid the disparition of some gauges during the second check
         config = {
@@ -207,6 +211,7 @@ class TestKubernetes(AgentCheckTest):
                 side_effect=lambda: json.loads(Fixtures.read_file("metrics_1.2.json")))
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_pods_list',
                 side_effect=lambda: json.loads(Fixtures.read_file("pods_list_1.2.json", string_escape=False)))
+    @mock.patch('utils.kubernetes.KubeUtil._locate_kubelet', return_value='http://172.17.0.1:10255')
     def test_metrics_1_2(self, *args):
         mocks = {
             '_perform_kubelet_checks': lambda x: None,
@@ -258,6 +263,7 @@ class TestKubernetes(AgentCheckTest):
                 side_effect=lambda: json.loads(Fixtures.read_file("metrics_1.2.json")))
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_pods_list',
                 side_effect=lambda: json.loads(Fixtures.read_file("pods_list_1.2.json", string_escape=False)))
+    @mock.patch('utils.kubernetes.KubeUtil._locate_kubelet', return_value='http://172.17.0.1:10255')
     def test_historate_1_2(self, *args):
         # To avoid the disparition of some gauges during the second check
         mocks = {
@@ -302,14 +308,13 @@ class TestKubernetes(AgentCheckTest):
 
     @mock.patch('utils.kubernetes.KubeUtil.get_node_info',
                 side_effect=lambda: ('Foo', 'Bar'))
-    @mock.patch('utils.kubernetes.KubeUtil.filter_pods_list',
-                side_effect=lambda x, y: x)
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_json_auth',
             side_effect=KubeUtil_fake_retrieve_json_auth)
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_machine_info')
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_metrics')
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_pods_list',
                 side_effect=lambda: json.loads(Fixtures.read_file("pods_list_1.2.json", string_escape=False)))
+    @mock.patch('utils.kubernetes.KubeUtil._locate_kubelet', return_value='http://172.17.0.1:10255')
     def test_events(self, *args):
         # default value for collect_events is False
         config = {'instances': [{'host': 'foo'}]}
@@ -330,12 +335,12 @@ class TestKubernetes(AgentCheckTest):
 
     @mock.patch('utils.kubernetes.KubeUtil.get_node_info',
                 side_effect=lambda: ('Foo', 'Bar'))
-    @mock.patch('utils.kubernetes.KubeUtil.filter_pods_list')
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_json_auth',
             side_effect=KubeUtil_fake_retrieve_json_auth)
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_machine_info')
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_metrics')
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_pods_list')
+    @mock.patch('utils.kubernetes.KubeUtil._locate_kubelet', return_value='http://172.17.0.1:10255')
     def test_namespaced_events(self, *args):
         # reset last event pulling time
         KubeUtil().last_event_collection_ts = 0
@@ -375,7 +380,9 @@ class TestKubernetes(AgentCheckTest):
         self.assertEvent('hello-node-47289321-91tfd Scheduled on Bar', count=0, exact_match=False)
 
 class TestKubeutil(unittest.TestCase):
-    def setUp(self):
+
+    @mock.patch('utils.kubernetes.KubeUtil._locate_kubelet', return_value='http://172.17.0.1:10255')
+    def setUp(self, _locate_kubelet):
         self.kubeutil = KubeUtil()
 
     @mock.patch('utils.kubernetes.KubeUtil.retrieve_pods_list', side_effect=['foo'])
@@ -408,29 +415,11 @@ class TestKubeutil(unittest.TestCase):
         labels = set(inn for out in res.values() for inn in out)
         self.assertEqual(len(labels), 3)
 
-    def test_extract_meta(self):
-        """
-        Test with both 1.1 and 1.2 version payloads
-        """
-        res = self.kubeutil.extract_meta({}, 'foo')
-        self.assertEqual(len(res), 0)
-
-        pods = json.loads(Fixtures.read_file("pods_list_1.1.json", string_escape=False))
-        res = self.kubeutil.extract_meta(pods, 'foo')
-        self.assertEqual(len(res), 0)
-        res = self.kubeutil.extract_meta(pods, 'uid')
-        self.assertEqual(len(res), 6)
-
-        pods = json.loads(Fixtures.read_file("pods_list_1.2.json", string_escape=False))
-        res = self.kubeutil.extract_meta(pods, 'foo')
-        self.assertEqual(len(res), 0)
-        res = self.kubeutil.extract_meta(pods, 'uid')
-        self.assertEqual(len(res), 4)
-
-    @mock.patch('utils.kubernetes.kubeutil.retrieve_json')
+    # @mock.patch('utils.kubernetes.kubeutil.KubeUtil.get_auth_token', return_value='foo_tok')
+    @mock.patch('utils.kubernetes.kubeutil.KubeUtil.retrieve_json_auth')
     def test_retrieve_pods_list(self, retrieve_json):
         self.kubeutil.retrieve_pods_list()
-        retrieve_json.assert_called_once_with(self.kubeutil.pods_list_url)
+        retrieve_json.assert_called_twice_with(self.kubeutil.pods_list_url, self.kubeutil.get_auth_token())
 
     @mock.patch('utils.kubernetes.kubeutil.retrieve_json')
     def test_retrieve_machine_info(self, retrieve_json):
@@ -441,29 +430,6 @@ class TestKubeutil(unittest.TestCase):
     def test_retrieve_metrics(self, retrieve_json):
         self.kubeutil.retrieve_metrics()
         retrieve_json.assert_called_once_with(self.kubeutil.metrics_url)
-
-    def test_filter_pods_list(self):
-        """
-        Test with both 1.1 and 1.2 version payloads
-        """
-        res = self.kubeutil.filter_pods_list({}, 'foo')
-        self.assertEqual(len(res.get('items')), 0)
-
-        pods = json.loads(Fixtures.read_file("pods_list_1.1.json", string_escape=False))
-        res = self.kubeutil.filter_pods_list(pods, '10.240.0.9')
-        self.assertEqual(len(res.get('items')), 5)
-
-        pods = json.loads(Fixtures.read_file("pods_list_1.1.json", string_escape=False))
-        res = self.kubeutil.filter_pods_list(pods, 'foo')
-        self.assertEqual(len(res.get('items')), 0)
-
-        pods = json.loads(Fixtures.read_file("pods_list_1.2.json", string_escape=False))
-        res = self.kubeutil.filter_pods_list(pods, '10.240.0.5')
-        self.assertEqual(len(res.get('items')), 1)
-
-        pods = json.loads(Fixtures.read_file("pods_list_1.2.json", string_escape=False))
-        res = self.kubeutil.filter_pods_list(pods, 'foo')
-        self.assertEqual(len(res.get('items')), 0)
 
     @mock.patch('utils.kubernetes.kubeutil.requests')
     def test_retrieve_json_auth(self, r):

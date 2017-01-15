@@ -1,17 +1,29 @@
 init_config:
 
 instances:
-  # The kubernetes check retrieves metrics from cadvisor running under kubelet.
-  # By default we will assume we're running under docker and will use the address
-  # of the default router to reach the cadvisor api unless the environment variable
-  # KUBERNETES_KUBELET_HOST is found.
+  # The kubernetes check retrieves metrics from cadvisor running under kubelet on each node.
+  # It also queries kubelet for its health and the list of local-running pods.
   #
-  # To override, e.g. in the case of a standalone cadvisor instance, use the following:
+  # By default we assume we're running under docker and
+  # that the kubelet read-only port with no auth is enabled.
+  #
+  # In this case we will use the address of the default router to
+  # reach the kubelet and cadvisor APIs unless the environment variable
+  # KUBERNETES_KUBELET_HOST is found (if your node names can be resolved by pods, we recommend you set this variable to spec.nodeName through the downward API).
+  #
+  # If the read-only endpoint is disabled, the check will query kubelet over HTTPS
+  #
+  # To override this behavior, e.g. in the case of a standalone cadvisor instance, use the following:
   #
   # host: localhost
   # port: 4194
   # method: http
+
+  # cAdvisor port
  - port: 4194
+
+  # cAdvisor host
+  # host: localhost
 
   # collect_events controls whether the agent should fetch events from the kubernetes API and
   # ingest them in Datadog. To avoid duplicates, only one agent at a time across the entire
@@ -39,6 +51,7 @@ instances:
   #
   # use_histogram: false
 
+  # kubelet port. It needs to be set if you are using a non-default one (10250 or 10255)
   # kubelet_port: 10255
   #
   # We can define a whitelist of patterns that permit publishing raw metrics.
