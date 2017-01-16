@@ -242,20 +242,37 @@ class SDDockerBackend(AbstractSDBackend):
                 log.warning("Failed to fetch pod metadata for container %s."
                             " Kubernetes tags may be missing." % c_id[:12])
                 return []
-            # get labels
+            # get pod abels
+            # FIXME haissam: does that still works?
             kube_labels = pod_metadata.get('labels', {})
             for label, value in kube_labels.iteritems():
                 tags.append('%s:%s' % (label, value))
 
-            # get replication controller
-            created_by = json.loads(pod_metadata.get('annotations', {}).get('kubernetes.io/created-by', '{}'))
-            if created_by.get('reference', {}).get('kind') == 'ReplicationController':
-                tags.append('kube_replication_controller:%s' % created_by.get('reference', {}).get('name'))
-
             # get kubernetes namespace
-            tags.append('kube_namespace:%s' % pod_metadata.get('namespace'))
+            namespace = pod_metadata.get('namespace')
+            tags.append('kube_namespace:%s' % namespace)
+
+            # get created-by
+            created_by = json.loads(pod_metadata.get('annotations', {}).get('kubernetes.io/created-by', '{}'))
+            creator_kind = created_by.get('reference', {}).get('kind')
+            creator_name = created_by.get('reference', {}).get('name')
+
+            # add creator tags
+            if creator_kind == 'ReplicationController':
+                tags.append('kube_replication_controller:%s' % creator_name)
+            elif creator_kind == 'DaemonSet':
+                tags.append('k8s_daemon_set:%s' % creator_name)
+            elif creator_kind == 'ReplicaSet':
+                tags.append('k8s_replica_set:%s' % creator_name)
+                if 'deployment' in creator_name:
+                    deployment = self._get_deployment_tag(namespace, creator_kind, creator_name)
+
+            # TODO: service tag (need to crawl & cache services on container event)
 
         return tags
+
+    def _get_deployment_tags():
+        TODO
 
     def _get_additional_tags(self, state, c_id, *args):
         tags = []
